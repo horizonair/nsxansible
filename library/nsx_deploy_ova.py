@@ -111,7 +111,8 @@ def main():
             disk_mode=dict(default='thin'),
             vcenter=dict(required=True, type='str'),
             vcenter_user=dict(required=True, type='str'),
-            vcenter_passwd=dict(required=True, type='str', no_log=True)
+            vcenter_passwd=dict(required=True, type='str', no_log=True),
+            poweron=dict(required=False, type='bool', default=True)
         ),
         supports_check_mode=True
     )
@@ -127,16 +128,19 @@ def main():
     nsx_manager_vm = find_virtual_machine(content, module.params['vmname'])
 
     if nsx_manager_vm:
-        api_status = check_nsx_api(module)
-        if not api_status:
-            module.fail_json(msg='A VM with the name {} was already present, but the '
+        if nsx_manager_vm.summary.runtime.powerState == 'poweredOn':
+            api_status = check_nsx_api(module)
+            if not api_status:
+                module.fail_json(msg='A VM with the name {} was already present, but the '
                                  'API did not respond'.format(module.params['vmname']))
-        elif api_status[0] != 200:
-            module.fail_json(msg='NSX Manager returned an error code, the response '
+            elif api_status[0] != 200:
+                module.fail_json(msg='NSX Manager returned an error code, the response '
                                  'was {} {}'.format(api_status[0], api_status[1]))
+            else:
+                module.exit_json(changed=False, nsx_manager_vm=str(nsx_manager_vm))
         else:
             module.exit_json(changed=False, nsx_manager_vm=str(nsx_manager_vm))
-
+            
     if module.check_mode:
         module.exit_json(changed=True)
 
@@ -146,7 +150,25 @@ def main():
                                                    module.params['vcenter_passwd'], module.params['vcenter'],
                                                    module.params['datacenter'], module.params['cluster'])
 
-    ova_tool_result = module.run_command([ovftool_exec, '--acceptAllEulas', '--skipManifestCheck',
+    if not module.params['poweron']:
+        args = [ovftool_exec, '--acceptAllEulas', '--skipManifestCheck',
+                                          '--noSSLVerify', '--allowExtraConfig',
+                                          '--diskMode={}'.format(module.params['disk_mode']),
+                                          '--datastore={}'.format(module.params['datastore']),
+                                          '--net:VSMgmt={}'.format(module.params['portgroup']),
+                                          '--name={}'.format(module.params['vmname']),
+                                          '--prop:vsm_hostname={}'.format(module.params['hostname']),
+                                          '--prop:vsm_dns1_0={}'.format(module.params['dns_server']),
+                                          '--prop:vsm_domain_0={}'.format(module.params['dns_domain']),
+                                          '--prop:vsm_ntp_0={}'.format(module.params['ntp_server']),
+                                          '--prop:vsm_gateway_0={}'.format(module.params['gateway']),
+                                          '--prop:vsm_ip_0={}'.format(module.params['ip_address']),
+                                          '--prop:vsm_netmask_0={}'.format(module.params['netmask']),
+                                          '--prop:vsm_cli_passwd_0={}'.format(module.params['admin_password']),
+                                          '--prop:vsm_cli_en_passwd_0={}'.format(module.params['enable_password']),
+                                          ova_file, vi_string]
+    else:
+        args = [ovftool_exec, '--acceptAllEulas', '--skipManifestCheck',
                                           '--powerOn', '--noSSLVerify', '--allowExtraConfig',
                                           '--diskMode={}'.format(module.params['disk_mode']),
                                           '--datastore={}'.format(module.params['datastore']),
@@ -161,11 +183,13 @@ def main():
                                           '--prop:vsm_netmask_0={}'.format(module.params['netmask']),
                                           '--prop:vsm_cli_passwd_0={}'.format(module.params['admin_password']),
                                           '--prop:vsm_cli_en_passwd_0={}'.format(module.params['enable_password']),
-                                          ova_file, vi_string])
+                                          ova_file, vi_string]
+        
+    ova_tool_result = module.run_command(args)
 
     if ova_tool_result[0] != 0:
         module.fail_json(msg='Failed to deploy OVA, error message from ovftool is: {}'.format(ova_tool_result[1]))
-    if not wait_for_api(module):
+    if module.params['poweron'] and not wait_for_api(module):
         module.fail_json(msg='Failed to deploy OVA, timed out waiting for the API to become available')
 
     module.exit_json(changed=True, ova_tool_result=ova_tool_result)
