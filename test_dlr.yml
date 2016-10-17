@@ -1,0 +1,80 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+     - answerfile_TPM_Lab.yml
+  tasks:
+  - name: gather moid for ds
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      datastore_name: "{{ vcenter_datastore }}"
+    register: gather_moids_ds
+    tags: dlr_create
+  - name: gather moid for cl
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      cluster_name: "{{ vcenter_edge_cluster }}"
+    register: gather_moids_cl
+    tags: dlr_create
+  - name: gather moid for mgmt portgroup
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      portgroup_name: 'vlan45'
+    register: gather_moids_pg
+    tags: dlr_create
+
+  - name: DLR creation
+    nsx_dlr:
+      nsxmanager_spec: "{{ nsxmanager_spec }}"
+      state: present
+      name: 'ansibleDLR'
+      description: 'This DLR is created by nsxansible'
+      resourcepool_moid: "{{ gather_moids_cl.object_id }}"
+      datastore_moid: "{{ gather_moids_ds.object_id }}"
+      datacenter_moid: "{{ gather_moids_cl.datacenter_moid }}"
+      mgmt_portgroup_moid: "{{ gather_moids_pg.object_id }}"
+      interfaces:
+        - {name: 'Uplink vnic', ip: '192.168.178.2', prefix_len: 24, logical_switch: 'edge_ls', iftype: 'uplink'}
+        - {name: 'Internal iface', ip: '172.16.1.1', prefix_len: 24, portgroup_id: "{{ gather_moids_pg.object_id }}", iftype: 'uplink'}
+        - {name: 'Internal new', ip: '172.16.4.1', prefix_len: 26, logical_switch: 'new_lswitch_name', iftype: 'internal'}
+      routes:
+        - {network: '10.11.22.0/24', next_hop: '172.16.1.2', admin_distance: '1', mtu: '1500', description: 'very important route'}
+        #- {network: '10.11.23.0/24', next_hop: '172.16.1.2', mtu: '1600'}
+        - {network: '10.11.24.0/24', next_hop: '172.16.4.2'}
+        - {network: '10.11.25.0/24', next_hop: '172.16.4.2'}
+      default_gateway: '192.168.178.1'
+      remote_access: 'true'
+      username: 'admin'
+      password: 'VMware1!VMware1!'
+      ha_enabled: 'true'
+    register: create_dlr
+    tags: dlr_create
+
+  - debug: var=create_dlr
+    tags: debug
+
+  - name: DLR Delete
+    nsx_dlr:
+      nsxmanager_spec: "{{ nsxmanager_spec }}"
+      state: absent
+      name: 'ansibleDLR'
+      resourcepool_moid: ''
+      datastore_moid: ''
+      datacenter_moid: ''
+      mgmt_portgroup_moid: ''
+      interfaces: []
+    register: delete_dlr
+    tags: dlr_delete
+    
+  - debug: var=delete_dlr
+    tags: debug

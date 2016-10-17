@@ -1,0 +1,78 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+     - answerfile_TPM_Lab.yml
+  tasks:
+  - name: gather moid for ds
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      datastore_name: "{{ vcenter_datastore }}"
+      validate_certs: False
+    register: gather_moids_ds
+    tags: esg_create
+  - name: gather moid for cl
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      cluster_name: "{{ vcenter_edge_cluster }}"
+      validate_certs: False
+    register: gather_moids_cl
+    tags: esg_create
+  - name: gather moid for uplink vnic
+    vcenter_gather_moids:
+      hostname: "{{ vcenter }}"
+      username: "{{ vcenter_user }}"
+      password: "{{ vcenter_pwd }}"
+      datacenter_name: "{{ vcenter_dc }}"
+      portgroup_name: 'vlan41'
+      validate_certs: False
+    register: gather_moids_upl_pg
+    tags: esg_create
+
+  - name: ESG creation
+    nsx_edge_router:
+      nsxmanager_spec: "{{ nsxmanager_spec }}"
+      state: present
+      name: 'ansibleESG_testplay'
+      description: 'This ESG is created by nsxansible'
+      resourcepool_moid: "{{ gather_moids_cl.object_id }}"
+      datastore_moid: "{{ gather_moids_ds.object_id }}"
+      datacenter_moid: "{{ gather_moids_cl.datacenter_moid }}"
+      interfaces:
+        vnic0: {ip: '10.114.209.94', prefix_len: 27, portgroup_id: "{{ gather_moids_upl_pg.object_id }}", name: 'Uplink vnic', iftype: 'uplink', fence_param: 'ethernet0.filter1.param1=1'}
+        vnic1: {ip: '192.168.178.1', prefix_len: 24, logical_switch: 'transit_net', name: 'Internal vnic', iftype: 'internal', fence_param: 'ethernet0.filter1.param1=1'}
+      default_gateway: '10.114.209.65'
+      routes:
+        - {network: '10.11.12.0/24', next_hop: '192.168.178.2', admin_distance: '1', mtu: '1500', description: 'very important route'}
+        - {network: '10.11.13.0/24', next_hop: '192.168.178.2', mtu: '1600'}
+        - {network: '10.11.14.0/24', next_hop: '192.168.178.2'}
+      remote_access: 'true'
+      username: 'admin'
+      password: 'VMware1!VMware1!'
+      firewall: 'false'
+      ha_enabled: 'true'
+    register: create_esg
+    tags: esg_create
+
+  - debug: var=create_esg
+    tags: debug
+
+  - name: ESG Delete
+    nsx_edge_router:
+      nsxmanager_spec: "{{ nsxmanager_spec }}"
+      state: absent
+      name: 'ansibleESG_testplay'
+      resourcepool_moid: ''
+      datastore_moid: ''
+      datacenter_moid: ''
+      interfaces: {}
+    register: delete_esg
+    tags: esg_delete
+    
