@@ -45,7 +45,7 @@ def main():
             nsxmanager_spec=dict(required=True, no_log=True, type='dict'),
             ippool=dict(required=True),
         ),
-        supports_check_mode=False
+        supports_check_mode=True
     )
 
     from nsxramlclient.client import NsxClient
@@ -54,7 +54,7 @@ def main():
                   module.params['nsxmanager_spec']['user'], module.params['nsxmanager_spec']['password'])
 
     if module.params['ippool'] != None:
-        ip_pool_objectid = get_ippool_id(s, module.params['name'])
+        ip_pool_objectid = get_ippool_id(s, module.params['ippool'])
         if not ip_pool_objectid:
             module.fail_json(changed=False, msg='pool not found')
         ippool_config = get_ippool_details(s, ip_pool_objectid)
