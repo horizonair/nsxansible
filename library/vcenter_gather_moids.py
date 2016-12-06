@@ -60,7 +60,7 @@ def main():
         argument_spec=argument_spec,
         required_one_of=[['cluster_name', 'portgroup_name', 'resourcepool_name', 'dvs_name', 'datastore_name']],
         mutually_exclusive=[['cluster_name', 'portgroup_name', 'resourcepool_name', 'dvs_name', 'datastore_name']],
-        supports_check_mode=False
+        supports_check_mode=True
     )
 
     if not HAS_PYVMOMI:
