@@ -41,12 +41,14 @@ def get_vdnscope_properties(session, vdn_scope):
     vdnscope_properties['description'] = vdn_scope_content['vdnScope']['description']
     vdnscope_properties['controlplanemode'] = vdn_scope_content['vdnScope']['controlPlaneMode']
 
-    if isinstance(vdn_scope_content['vdnScope']['clusters']['cluster'], dict):
-        single_cluster_moid = vdn_scope_content['vdnScope']['clusters']['cluster']['cluster']['objectId']
-        vdnscope_properties['cluster_moid_list'].append(single_cluster_moid)
-    elif isinstance(vdn_scope_content['vdnScope']['clusters']['cluster'], list):
-        for cluster in vdn_scope_content['vdnScope']['clusters']['cluster']:
-            vdnscope_properties['cluster_moid_list'].append(cluster['cluster']['objectId'])
+    # In a universal TZ cluster list could be empty
+    if vdn_scope_content['vdnScope']['clusters'] != None:
+        if isinstance(vdn_scope_content['vdnScope']['clusters']['cluster'], dict):
+            single_cluster_moid = vdn_scope_content['vdnScope']['clusters']['cluster']['cluster']['objectId']
+            vdnscope_properties['cluster_moid_list'].append(single_cluster_moid)
+        elif isinstance(vdn_scope_content['vdnScope']['clusters']['cluster'], list):
+            for cluster in vdn_scope_content['vdnScope']['clusters']['cluster']:
+                vdnscope_properties['cluster_moid_list'].append(cluster['cluster']['objectId'])
 
     return vdnscope_properties
 
@@ -132,7 +134,8 @@ def state_check_scope_update(session, module):
         if not module.check_mode:
             scope_cluster_change(session, vdn_scope_id, module, vdn_props['cluster_moid_list'])
 
-    if changed_property:
+    # If this is a secondary manager, only process cluster updates
+    if changed_property and module.params['secondary'] == False:
         if not module.check_mode:
             update_vdnscope_attributes(session, vdn_scope_id, module)
 
@@ -154,6 +157,7 @@ def main():
             controlplanemode=dict(default='UNICAST_MODE',
                                   choices=['HYBRID_MODE', 'MULTICAST_MODE', 'UNICAST_MODE'],
                                   type='str'),
+            secondary=dict(required=False, type='bool', default=False),
             cluster_moid_list=dict(required=True, type='list')
         ),
         supports_check_mode=True
