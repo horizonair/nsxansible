@@ -134,8 +134,9 @@ def state_check_scope_update(session, module):
         if not module.check_mode:
             scope_cluster_change(session, vdn_scope_id, module, vdn_props['cluster_moid_list'])
 
-    if not module.check_mode:
-        update_vdnscope_attributes(session, vdn_scope_id, module)
+    if changed_property:
+        if not module.check_mode:
+            update_vdnscope_attributes(session, vdn_scope_id, module)
 
     if changed_cluster_list or changed_property:
         module.exit_json(changed=True, vdn_props=vdn_props)
