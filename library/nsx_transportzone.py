@@ -134,10 +134,8 @@ def state_check_scope_update(session, module):
         if not module.check_mode:
             scope_cluster_change(session, vdn_scope_id, module, vdn_props['cluster_moid_list'])
 
-    # If this is a secondary manager, only process cluster updates
-    if changed_property and module.params['secondary'] == False:
-        if not module.check_mode:
-            update_vdnscope_attributes(session, vdn_scope_id, module)
+    if not module.check_mode:
+        update_vdnscope_attributes(session, vdn_scope_id, module)
 
     if changed_cluster_list or changed_property:
         module.exit_json(changed=True, vdn_props=vdn_props)
@@ -157,7 +155,6 @@ def main():
             controlplanemode=dict(default='UNICAST_MODE',
                                   choices=['HYBRID_MODE', 'MULTICAST_MODE', 'UNICAST_MODE'],
                                   type='str'),
-            secondary=dict(required=False, type='bool', default=False),
             cluster_moid_list=dict(required=True, type='list')
         ),
         supports_check_mode=True
