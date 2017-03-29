@@ -28,11 +28,12 @@ def get_mcast_pool(session):
     return mcastpool['multicastRanges']
 
 
-def create_segment_id_pool(session, start, end):
+def create_segment_id_pool(session, start, end, isuniversal):
     segments_create_body = session.extract_resource_body_example('vdnSegmentPools', 'create')
     segments_create_body['segmentRange']['begin'] = start
     segments_create_body['segmentRange']['end'] = end
     segments_create_body['segmentRange']['name'] = 'createdByAnsible'
+    segments_create_body['segmentRange']['isUniversal'] = isuniversal
     return session.create('vdnSegmentPools', request_body_dict=segments_create_body)['status']
 
 
@@ -41,6 +42,7 @@ def create_mcast_pool(session, start, end):
     mcastpool_create_body['multicastRange']['begin'] = start
     mcastpool_create_body['multicastRange']['end'] = end
     mcastpool_create_body['multicastRange']['name'] = 'createdByAnsible'
+    mcastpool_create_body['multicastRange']['isUniversal'] = isuniversal
     return session.create('vdnMulticastPools', request_body_dict=mcastpool_create_body)
 
 
@@ -48,6 +50,7 @@ def update_segment_id_pool(session, pool_id, end):
     id_pool_body = session.extract_resource_body_example('vdnSegmentPool', 'update')
     id_pool_body['segmentRange']['end'] = end
     id_pool_body['segmentRange']['name'] = 'createdByAnsible'
+    id_pool_body['segmentRange']['isUniversal'] = isuniversal
     return session.update('vdnSegmentPool', uri_parameters={'segmentPoolId': pool_id},
                           request_body_dict=id_pool_body)
 
@@ -56,6 +59,7 @@ def update_mcast_pool(session, mcast_pool_id, end):
     mcast_pool_body = session.extract_resource_body_example('vdnMulticastPool', 'update')
     mcast_pool_body['multicastRange']['end'] = end
     mcast_pool_body['multicastRange']['name'] = 'createdByAnsible'
+    mcastpool_create_body['multicastRange']['isUniversal'] = isuniversal
     return session.update('vdnMulticastPool',
                           uri_parameters={'multicastAddresssRangeId': mcast_pool_id},
                           request_body_dict=mcast_pool_body)
@@ -76,6 +80,7 @@ def main():
             nsxmanager_spec=dict(required=True, no_log=True, type='dict'),
             idpoolstart=dict(default=5000),
             idpoolend=dict(default=15000),
+            isuniversal=dict(required=False, type='bool', default=False),
             mcast_enabled=dict(type='bool', default=False),
             mcastpoolstart=dict(default='239.0.0.0'),
             mcastpoolend=dict(default='239.255.255.255')
@@ -110,21 +115,21 @@ def main():
         mcast_pool_changed = True
 
     if not id_pool and module.params['state'] == 'present':
-        create_segment_id_pool(s, module.params['idpoolstart'], module.params['idpoolend'])
+        create_segment_id_pool(s, module.params['idpoolstart'], module.params['idpoolend'], module.params['isuniversal'])
         id_pool_changed = True
 
     if not mcast_pool and module.params['mcast_enabled'] and module.params['state'] == 'present':
-        create_mcast_pool(s, module.params['mcastpoolstart'], module.params['mcastpoolend'])
+        create_mcast_pool(s, module.params['mcastpoolstart'], module.params['mcastpoolend'], module.params['isuniversal'])
         mcast_pool_changed = True
 
     if id_pool:
         if id_pool['segmentRange']['end'] != str(module.params['idpoolend']):
-            update_segment_id_pool(s, id_pool['segmentRange']['id'], module.params['idpoolend'])
+            update_segment_id_pool(s, id_pool['segmentRange']['id'], module.params['idpoolend'], module.params['isuniversal'])
             id_pool_changed = True
 
     if mcast_pool:
         if mcast_pool['multicastRange']['end'] != str(module.params['mcastpoolend']):
-            update_mcast_pool(s, mcast_pool['multicastRange']['id'], module.params['mcastpoolend'])
+            update_mcast_pool(s, mcast_pool['multicastRange']['id'], module.params['mcastpoolend'], module.params['isuniversal'])
             mcast_pool_changed = True
 
     if id_pool_changed or mcast_pool_changed:
