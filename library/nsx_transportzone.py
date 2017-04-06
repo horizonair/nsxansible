@@ -20,6 +20,7 @@
 __author__ = 'yfauser'
 
 
+
 def retrieve_scope(session, tz_name):
     vdn_scopes = session.read('vdnScopes', 'read')['body']
     try:
@@ -30,7 +31,10 @@ def retrieve_scope(session, tz_name):
         if vdn_scope_dict_list['name'] == tz_name:
             return vdn_scope_dict_list['objectId']
     elif isinstance(vdn_scope_dict_list, list):
-        return [scope['objectId'] for scope in vdn_scope_dict_list if scope['name'] == tz_name][0]
+        if len([scope['objectId'] for scope in vdn_scope_dict_list if scope['name'] == tz_name]) > 0:
+           return [scope['objectId'] for scope in vdn_scope_dict_list if scope['name'] == tz_name][0]
+        else:
+           return None
 
 
 def get_vdnscope_properties(session, vdn_scope):
@@ -75,7 +79,10 @@ def state_create_scope(session, module):
     vdn_create_spec['vdnScope']['controlPlaneMode'] = module.params['controlplanemode']
 
     if not module.check_mode:
-        vdn_scope = session.create('vdnScopes', request_body_dict=vdn_create_spec)['objectId']
+        if module.params['isuniversal']:
+            vdn_scope = session.create('vdnScopes', request_body_dict=vdn_create_spec, query_parameters_dict={'isUniversal': module.params['isuniversal']})['objectId']
+        else:
+            vdn_scope = session.create('vdnScopes', request_body_dict=vdn_create_spec)['objectId']
         if len(module.params['cluster_moid_list']) > 1:
             change_member_clusters(session, vdn_scope, module.params['cluster_moid_list'][1:], 'expand')
         module.exit_json(changed=True, vdn_scope=vdn_scope)
@@ -156,6 +163,7 @@ def main():
             controlplanemode=dict(default='UNICAST_MODE',
                                   choices=['HYBRID_MODE', 'MULTICAST_MODE', 'UNICAST_MODE'],
                                   type='str'),
+            isuniversal=dict(required=False, type='bool', default=False),
             cluster_moid_list=dict(required=True, type='list')
         ),
         supports_check_mode=True

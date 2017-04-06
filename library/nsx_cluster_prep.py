@@ -20,6 +20,7 @@
 
 def get_cluster_status(session, cluster_moid):
     cluster_status = session.read('nwfabricStatus', query_parameters_dict={'resource': cluster_moid})['body']
+
     for feature_status in cluster_status['resourceStatuses']['resourceStatus']['nwFabricFeatureStatus']:
         if feature_status['featureId'] == 'com.vmware.vshield.vsm.nwfabric.hostPrep':
             return feature_status['status']
@@ -68,7 +69,7 @@ def main():
                   module.params['nsxmanager_spec']['user'], module.params['nsxmanager_spec']['password'])
 
     cluster_status = get_cluster_status(s, module.params['cluster_moid'])
-
+    #cluster_status = 'GREEN'
     if cluster_status == 'GREEN' and module.params['state'] == 'absent':
         unprep_response = cluster_unprep(s, module.params['cluster_moid'])
         module.exit_json(changed=True, unprep_response=unprep_response)

@@ -112,6 +112,7 @@ def main():
             vcenter=dict(required=True, type='str'),
             vcenter_user=dict(required=True, type='str'),
             vcenter_passwd=dict(required=True, type='str', no_log=True),
+            enable_ssh=dict(required=False, type='bool', default=False),
             poweron=dict(required=False, type='bool', default=True)
         ),
         supports_check_mode=True
@@ -152,6 +153,7 @@ def main():
 
     if not module.params['poweron']:
         args = [ovftool_exec, '--acceptAllEulas', '--skipManifestCheck',
+                                          '--X:logFile=upload.log', '--X:logLevel=trivia',
                                           '--noSSLVerify', '--allowExtraConfig',
                                           '--diskMode={}'.format(module.params['disk_mode']),
                                           '--datastore={}'.format(module.params['datastore']),
@@ -166,9 +168,11 @@ def main():
                                           '--prop:vsm_netmask_0={}'.format(module.params['netmask']),
                                           '--prop:vsm_cli_passwd_0={}'.format(module.params['admin_password']),
                                           '--prop:vsm_cli_en_passwd_0={}'.format(module.params['enable_password']),
+                                          '--prop:vsm_isSSHEnabled={}'.format(module.params['enable_ssh']),
                                           ova_file, vi_string]
     else:
         args = [ovftool_exec, '--acceptAllEulas', '--skipManifestCheck',
+                                          '--X:logFile=upload.log', '--X:logLevel=trivia',
                                           '--powerOn', '--noSSLVerify', '--allowExtraConfig',
                                           '--diskMode={}'.format(module.params['disk_mode']),
                                           '--datastore={}'.format(module.params['datastore']),
@@ -183,6 +187,7 @@ def main():
                                           '--prop:vsm_netmask_0={}'.format(module.params['netmask']),
                                           '--prop:vsm_cli_passwd_0={}'.format(module.params['admin_password']),
                                           '--prop:vsm_cli_en_passwd_0={}'.format(module.params['enable_password']),
+                                          '--prop:vsm_isSSHEnabled={}'.format(module.params['enable_ssh']),
                                           ova_file, vi_string]
         
     ova_tool_result = module.run_command(args)
