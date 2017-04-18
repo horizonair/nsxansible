@@ -42,7 +42,8 @@ def get_vdnscope_properties(session, vdn_scope):
     vdn_scope_content = session.read('vdnScope', uri_parameters={'scopeId': vdn_scope})['body']
 
     vdnscope_properties['name'] = vdn_scope_content['vdnScope']['name']
-    vdnscope_properties['description'] = vdn_scope_content['vdnScope']['description']
+    if 'description' in vdn_scope_content['vdnScope']:
+        vdnscope_properties['description'] = vdn_scope_content['vdnScope']['description']
     vdnscope_properties['controlplanemode'] = vdn_scope_content['vdnScope']['controlPlaneMode']
 
     # In a universal TZ cluster list could be empty
