@@ -40,7 +40,12 @@ def create_controllers(session, controller_count, module):
             response = session.read('nsxControllerJob', uri_parameters={'jobId': job_id})
             status = response['body']['controllerDeploymentInfo']['status']
             if status == 'Success':
-                break
+                # Success is not enough, wait for the controller status to be RUNNING before deploying
+                # the next controller
+                controller_cluster = get_controller_cluster_info(session)            
+                controller_state = get_controller_state(controller_cluster, response['body']['controllerDeploymentInfo']['vmId'])
+                if controller_state == 'RUNNING':
+                    break
             elif status == 'Failure':
                 return False
             else:
@@ -52,6 +57,20 @@ def create_controllers(session, controller_count, module):
 
     return True
 
+
+def get_controller_state(controller_cluster, vmId):
+    if not controller_cluster['controllers']:
+        return []
+    if type(controller_cluster['controllers']['controller']) is dict:
+        if controller_cluster['controllers']['controller']['virtualMachineInfo']['objectId'] == vmId:
+            return controller_cluster['controllers']['controller']['status']
+        else:
+            return 'NOT_DEPLOYED'
+    elif type(controller_cluster['controllers']['controller']) is list:
+        for controller in controller_cluster['controllers']['controller']:
+            if controller['virtualMachineInfo']['objectId'] == vmId:
+               return controller['status']
+        return 'NOT_DEPLOYED'
 
 def get_controller_id_list(controller_cluster):
     if not controller_cluster['controllers']:
@@ -133,6 +152,8 @@ def main():
         elif module.params['deploytype'] == 'full':
             if len(controller_id_list) == 0:
                 controller_to_deploy = 3
+            else:
+                controller_to_deploy = 3 - len(controller_id_list)
         elif module.params['deploytype'] == 'lab':
             if len(controller_id_list) == 0:
                 controller_to_deploy = 1
