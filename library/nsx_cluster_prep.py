@@ -72,7 +72,15 @@ def main():
     #cluster_status = 'GREEN'
     if cluster_status == 'GREEN' and module.params['state'] == 'absent':
         unprep_response = cluster_unprep(s, module.params['cluster_moid'])
-        module.exit_json(changed=True, unprep_response=unprep_response)
+        unprep_status  = wait_for_status(s, module.params['cluster_moid'], completion_status='UNKNOWN')
+        if not unprep_status:
+            module.fail_json(msg='Timeout waiting for uninstalling NSX VIBs on cluster', unprep_response=unprep_response)
+        else:
+            module.exit_json(changed=True, prep_response=prep_response)
+
+    if cluster_status == 'RED' or cluster_status == 'YELLOW' and module.params['state'] == 'absent':
+        module.fail_json(msg='Cluster is in {} status, please check manually'.format(cluster_status),
+                         cluster_status=cluster_status)
 
     if cluster_status == 'RED' or cluster_status == 'YELLOW' and module.params['state'] == 'present':
         module.fail_json(msg='Cluster is in {} status, please check manually'.format(cluster_status),
