@@ -76,7 +76,7 @@ def main():
         if not unprep_status:
             module.fail_json(msg='Timeout waiting for uninstalling NSX VIBs on cluster', unprep_response=unprep_response)
         else:
-            module.exit_json(changed=True, prep_response=prep_response)
+            module.exit_json(changed=True, unprep_response=unprep_response)
 
     if cluster_status == 'RED' or cluster_status == 'YELLOW' and module.params['state'] == 'absent':
         module.fail_json(msg='Cluster is in {} status, please check manually'.format(cluster_status),
